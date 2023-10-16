@@ -5,8 +5,7 @@
 #include "hardware/gpio.h"
 
 bool InputMacro::available() {
-    inputMacroOptions = Storage::getInstance().getAddonOptions().macroOptions;
-	return inputMacroOptions.enabled;
+    return Storage::getInstance().getAddonOptions().macroOptions.enabled;
 }
 
 void InputMacro::setup() {
@@ -15,6 +14,12 @@ void InputMacro::setup() {
 	gpio_init(inputMacroOptions.pin);             // Initialize pin
 	gpio_set_dir(inputMacroOptions.pin, GPIO_IN); // Set as INPUT
 	gpio_pull_up(inputMacroOptions.pin);          // Set as PULLUP
+
+    if (inputMacroOptions.macroBoardLedEnabled && isValidPin(BOARD_LED_PIN)) {
+        gpio_init(BOARD_LED_PIN);
+        gpio_set_dir(BOARD_LED_PIN, GPIO_OUT);
+        boardLedEnabled = true;
+    }
 
     for (int i = 0; i < inputMacroOptions.macroList_count; i++) {
         Macro& macro = inputMacroOptions.macroList[i];
@@ -29,6 +34,8 @@ void InputMacro::setup() {
 
 void InputMacro::preprocess()
 {
+    FocusModeOptions& focusModeOptions = Storage::getInstance().getAddonOptions().focusModeOptions;
+    if (focusModeOptions.enabled && focusModeOptions.macroLockEnabled) return;
     Gamepad * gamepad = Storage::getInstance().GetGamepad();
 	uint32_t allPins = ~gpio_get_all();
 
@@ -126,6 +133,7 @@ void InputMacro::preprocess()
                 break;
         }
     }
+
     prevMacroInputPressed = macroInputPressed;
 
     MacroInput& macroInput = macro.macroInputs[macroInputPosition];
@@ -174,6 +182,14 @@ void InputMacro::preprocess()
             gamepad->state.dpad |= GAMEPAD_MASK_RIGHT;
         }
         gamepad->state.buttons |= buttonMask;
+
+        if (boardLedEnabled) {
+            gpio_put(BOARD_LED_PIN, (gamepad->state.dpad || gamepad->state.buttons) ? 1 : 0);
+        }
+    } else {
+        if (boardLedEnabled) {
+            gpio_put(BOARD_LED_PIN, 0);
+        }
     }
 
     if ((currentMicros - macroStartTime) >= macroInputHoldTime) {

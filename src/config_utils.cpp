@@ -358,6 +358,7 @@ void ConfigUtils::initUnsetPropertiesWithDefaults(Config& config)
     INIT_UNSET_PROPERTY(config.addonOptions.bootselButtonOptions, buttonMap, BOOTSEL_BUTTON_MASK);
 
     // addonOptions.onBoardLedOptions
+    INIT_UNSET_PROPERTY(config.addonOptions.onBoardLedOptions, enabled, !!BOARD_LED_ENABLED);
     INIT_UNSET_PROPERTY(config.addonOptions.onBoardLedOptions, mode, BOARD_LED_TYPE);
 
     // addonOptions.analogOptions
@@ -531,6 +532,7 @@ void ConfigUtils::initUnsetPropertiesWithDefaults(Config& config)
     INIT_UNSET_PROPERTY(config.addonOptions.focusModeOptions, oledLockEnabled, !!FOCUS_MODE_OLED_LOCK_ENABLED);
     INIT_UNSET_PROPERTY(config.addonOptions.focusModeOptions, rgbLockEnabled, !!FOCUS_MODE_RGB_LOCK_ENABLED);
     INIT_UNSET_PROPERTY(config.addonOptions.focusModeOptions, buttonLockEnabled, !!FOCUS_MODE_BUTTON_LOCK_ENABLED);
+    INIT_UNSET_PROPERTY(config.addonOptions.focusModeOptions, macroLockEnabled, !!FOCUS_MODE_MACRO_LOCK_ENABLED);
 
     // PS Passthrough
     INIT_UNSET_PROPERTY(config.addonOptions.psPassthroughOptions, enabled, PSPASSTHROUGH_ENABLED);
@@ -539,6 +541,7 @@ void ConfigUtils::initUnsetPropertiesWithDefaults(Config& config)
 
     INIT_UNSET_PROPERTY(config.addonOptions.macroOptions, enabled, !!INPUT_MACRO_ENABLED);
     INIT_UNSET_PROPERTY(config.addonOptions.macroOptions, pin, INPUT_MACRO_PIN);
+    INIT_UNSET_PROPERTY(config.addonOptions.macroOptions, macroBoardLedEnabled, INPUT_MACRO_BOARD_LED_ENABLED);
     config.addonOptions.macroOptions.macroList_count = 6;
 }
 
