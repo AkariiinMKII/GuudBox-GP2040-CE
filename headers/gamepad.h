@@ -13,6 +13,14 @@
 #include "gamepad/descriptors/XInputDescriptors.h"
 #include "gamepad/descriptors/KeyboardDescriptors.h"
 #include "gamepad/descriptors/PS4Descriptors.h"
+#include "gamepad/descriptors/NeogeoDescriptors.h"
+#include "gamepad/descriptors/MDMiniDescriptors.h"
+#include "gamepad/descriptors/PCEngineDescriptors.h"
+#include "gamepad/descriptors/EgretDescriptors.h"
+#include "gamepad/descriptors/AstroDescriptors.h"
+#include "gamepad/descriptors/PSClassicDescriptors.h"
+#include "gamepad/descriptors/XboxOriginalDescriptors.h"
+#include "gamepad/descriptors/XBOneDescriptors.h"
 
 #include "pico/stdlib.h"
 
@@ -42,7 +50,7 @@ public:
 	Gamepad();
 
 	void setup();
-	void teardown_and_reinit(const uint32_t profileNum);
+	void reinit();
 	void process();
 	void read();
 	void save();
@@ -65,13 +73,26 @@ public:
 	 */
 	bool hasRightAnalogStick {false};
 
+	void sendReportSuccess();
 	void *getReport();
 	uint16_t getReportSize();
 	HIDReport *getHIDReport();
 	SwitchReport *getSwitchReport();
 	XInputReport *getXInputReport();
+	XboxOneGamepad_Data_t *getXBOneReport();
 	KeyboardReport *getKeyboardReport();
 	PS4Report *getPS4Report();
+	NeogeoReport *getNeogeoReport();
+	MDMiniReport *getMDMiniReport();
+	PCEngineReport *getPCEngineReport();
+    EgretReport *getEgretReport();
+    AstroReport *getAstroReport();
+    PSClassicReport *getPSClassicReport();
+    XboxOriginalReport *getXboxOriginalReport();
+
+	uint8_t last_report[CFG_TUD_ENDPOINT0_SIZE] = { };
+	uint8_t last_report_counter = 0;
+	uint16_t last_axis_counter = 0;
 
 	/**
 	 * @brief Check for a button press. Used by `pressed[Button]` helper methods.
@@ -137,6 +158,7 @@ public:
 	GamepadDebouncer debouncer;
 	GamepadState rawState;
 	GamepadState state;
+	GamepadState turboState;
 	GamepadButtonMapping *mapDpadUp;
 	GamepadButtonMapping *mapDpadDown;
 	GamepadButtonMapping *mapDpadLeft;
@@ -157,10 +179,13 @@ public:
 	GamepadButtonMapping *mapButtonA2;
 	GamepadButtonMapping *mapButtonFn;
 
+	bool userRequestedReinit = false;
+
 	inline static const SOCDMode resolveSOCDMode(const GamepadOptions& options) {
 		 return (options.socdMode == SOCD_MODE_BYPASS &&
 				 (options.inputMode == INPUT_MODE_HID ||
 				  options.inputMode == INPUT_MODE_SWITCH ||
+				  options.inputMode == INPUT_MODE_NEOGEO ||
 				  options.inputMode == INPUT_MODE_PS4)) ?
 				SOCD_MODE_NEUTRAL : options.socdMode;
 	};
@@ -176,6 +201,11 @@ private:
 	const HotkeyOptions& hotkeyOptions;
 
 	GamepadHotkey lastAction = HOTKEY_NONE;
+
+	uint32_t keep_alive_timer;
+	uint8_t keep_alive_sequence;
+	uint8_t virtual_keycode_sequence;
+	bool xb1_guide_pressed;
 };
 
 #endif

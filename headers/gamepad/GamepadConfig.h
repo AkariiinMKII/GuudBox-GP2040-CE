@@ -21,6 +21,10 @@
 #define DEFAULT_PS4CONTROLLER_TYPE PS4_CONTROLLER
 #endif
 
+#ifndef DEFAULT_PS4_REPORTHACK
+#define DEFAULT_PS4_REPORTHACK false
+#endif 
+
 /* hotkeys */
 #ifndef HOTKEY_01_AUX_MASK
 #define HOTKEY_01_AUX_MASK 0
@@ -176,4 +180,56 @@
 #endif
 #ifndef HOTKEY_12_ACTION
 #define HOTKEY_12_ACTION 0
+#endif
+
+#ifndef HOTKEY_13_AUX_MASK
+#define HOTKEY_13_AUX_MASK 0
+#endif
+#ifndef HOTKEY_13_BUTTONS_MASK
+#define HOTKEY_13_BUTTONS_MASK 0
+#endif
+#ifndef HOTKEY_13_DPAD_MASK
+#define HOTKEY_13_DPAD_MASK 0
+#endif
+#ifndef HOTKEY_13_ACTION
+#define HOTKEY_13_ACTION 0
+#endif
+
+#ifndef HOTKEY_14_AUX_MASK
+#define HOTKEY_14_AUX_MASK 0
+#endif
+#ifndef HOTKEY_14_BUTTONS_MASK
+#define HOTKEY_14_BUTTONS_MASK 0
+#endif
+#ifndef HOTKEY_14_DPAD_MASK
+#define HOTKEY_14_DPAD_MASK 0
+#endif
+#ifndef HOTKEY_14_ACTION
+#define HOTKEY_14_ACTION 0
+#endif
+
+#ifndef HOTKEY_15_AUX_MASK
+#define HOTKEY_15_AUX_MASK 0
+#endif
+#ifndef HOTKEY_15_BUTTONS_MASK
+#define HOTKEY_15_BUTTONS_MASK 0
+#endif
+#ifndef HOTKEY_15_DPAD_MASK
+#define HOTKEY_15_DPAD_MASK 0
+#endif
+#ifndef HOTKEY_15_ACTION
+#define HOTKEY_15_ACTION 0
+#endif
+
+#ifndef HOTKEY_16_AUX_MASK
+#define HOTKEY_16_AUX_MASK 0
+#endif
+#ifndef HOTKEY_16_BUTTONS_MASK
+#define HOTKEY_16_BUTTONS_MASK 0
+#endif
+#ifndef HOTKEY_16_DPAD_MASK
+#define HOTKEY_16_DPAD_MASK 0
+#endif
+#ifndef HOTKEY_16_ACTION
+#define HOTKEY_16_ACTION 0
 #endif

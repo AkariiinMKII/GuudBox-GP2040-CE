@@ -6,9 +6,12 @@
 #ifndef GP2040_H_
 #define GP2040_H_
 
+#include <map>
+
 // GP2040 Classes
 #include "gamepad.h"
 #include "addonmanager.h"
+#include "peripheralmanager.h"
 
 #include "pico/types.h"
 
@@ -21,6 +24,7 @@ public:
 private:
     Gamepad snapshot;
     AddonManager addons;
+    PeripheralManager peripherals;
 
     struct RebootHotkeys {
         RebootHotkeys();
@@ -43,9 +47,24 @@ private:
         SET_INPUT_MODE_SWITCH,
         SET_INPUT_MODE_XINPUT,
         SET_INPUT_MODE_KEYBOARD,
-        SET_INPUT_MODE_PS4
+        SET_INPUT_MODE_PS4,
+        SET_INPUT_MODE_XBONE,
+        SET_INPUT_MODE_NEOGEO,
+        SET_INPUT_MODE_MDMINI,
+        SET_INPUT_MODE_PCEMINI,
+        SET_INPUT_MODE_EGRET,
+        SET_INPUT_MODE_ASTRO,
+        SET_INPUT_MODE_PSCLASSIC,
+        SET_INPUT_MODE_XBOXORIGINAL
     };
     BootAction getBootAction();
+
+    // GPIO manipulation for setup and profile reinit
+    void initializeStandardGpio();
+    void deinitializeStandardGpio();
+
+    // input mask, action
+    std::map<uint32_t, int32_t> bootActions;
 };
 
 #endif

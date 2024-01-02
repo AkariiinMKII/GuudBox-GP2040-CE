@@ -17,7 +17,7 @@ import DualDirection, {
 	dualDirectionScheme,
 	dualDirectionState,
 } from '../Addons/DualDirection';
-import I2c, { i2cScheme, i2cState } from '../Addons/I2c';
+import I2CAnalog1219, { i2cAnalogScheme, i2cAnalogState } from '../Addons/I2CAnalog1219';
 import Joystick, { joystickScheme, joystickState } from '../Addons/Joystick';
 import OnBoardLed, {
 	onBoardLedScheme,
@@ -35,7 +35,7 @@ import Ps4, { ps4Scheme, ps4State } from '../Addons/Ps4';
 import PSPassthrough, {
 	psPassthroughScheme,
 	psPassthroughState,
-} from '../Addons/Passthrough';
+} from '../Addons/PSPassthrough';
 import Wii, { wiiScheme, wiiState } from '../Addons/Wii';
 import SNES, { snesState } from '../Addons/SNES';
 import FocusMode, {
@@ -43,6 +43,11 @@ import FocusMode, {
 	focusModeState,
 } from '../Addons/FocusMode';
 import Keyboard, { keyboardScheme, keyboardState } from '../Addons/Keyboard';
+import InputHistory, { inputHistoryScheme, inputHistoryState } from '../Addons/InputHistory';
+import XBOnePassthrough, {
+	xbonePassthroughScheme,
+	xbonePassthroughState,
+} from '../Addons/XBOnePassthrough';
 
 const schema = yup.object().shape({
 	...analogScheme,
@@ -51,7 +56,7 @@ const schema = yup.object().shape({
 	...turboScheme,
 	...joystickScheme,
 	...reverseScheme,
-	...i2cScheme,
+	...i2cAnalogScheme,
 	...dualDirectionScheme,
 	...tiltScheme,
 	...buzzerScheme,
@@ -59,9 +64,11 @@ const schema = yup.object().shape({
 	...socdScheme,
 	...ps4Scheme,
 	...psPassthroughScheme,
+	...xbonePassthroughScheme,
 	...wiiScheme,
 	...focusModeScheme,
 	...keyboardScheme,
+	...inputHistoryScheme,
 });
 
 const defaultValues = {
@@ -71,7 +78,7 @@ const defaultValues = {
 	...turboState,
 	...joystickState,
 	...reverseState,
-	...i2cState,
+	...i2cAnalogState,
 	...dualDirectionState,
 	...tiltState,
 	...buzzerState,
@@ -79,10 +86,12 @@ const defaultValues = {
 	...socdState,
 	...ps4State,
 	...psPassthroughState,
+	...xbonePassthroughState,
 	...wiiState,
 	...snesState,
 	...focusModeState,
 	...keyboardState,
+	...inputHistoryState,
 };
 
 const ADDONS = [
@@ -92,7 +101,7 @@ const ADDONS = [
 	Turbo,
 	Joystick,
 	Reverse,
-	I2c,
+	I2CAnalog1219,
 	DualDirection,
 	Tilt,
 	Buzzer,
@@ -100,10 +109,12 @@ const ADDONS = [
 	SOCD,
 	Ps4,
 	PSPassthrough,
+	XBOnePassthrough,
 	Wii,
 	SNES,
 	FocusMode,
 	Keyboard,
+	InputHistory
 ];
 
 const FormContext = ({ setStoredData }) => {
@@ -156,11 +167,15 @@ function flattenObject(object) {
 }
 
 export default function AddonsConfigPage() {
-	const { updateUsedPins } = useContext(AppContext);
+	const { updateUsedPins, updatePeripherals } = useContext(AppContext);
 	const [saveMessage, setSaveMessage] = useState('');
 	const [storedData, setStoredData] = useState({});
 
 	const { t } = useTranslation();
+
+    useEffect(() => {
+        updatePeripherals();
+    }, []);
 
 	const onSuccess = async (values) => {
 		const flattened = flattenObject(storedData);
@@ -197,7 +212,8 @@ export default function AddonsConfigPage() {
 			onSubmit={onSuccess}
 			initialValues={defaultValues}
 		>
-			{({ handleSubmit, handleChange, values, errors, setFieldValue }) => (
+			{({ handleSubmit, handleChange, values, errors, setFieldValue }) => 
+			console.log('errors', errors) || (
 				<Form noValidate onSubmit={handleSubmit}>
 					<h1>{t('AddonsConfig:header-text')}</h1>
 					<p>{t('AddonsConfig:sub-header-text')}</p>

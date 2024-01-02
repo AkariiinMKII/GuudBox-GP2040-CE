@@ -12,10 +12,22 @@ if (PICO_SDK_VERSION_STRING VERSION_LESS "1.5.0")
   message(FATAL_ERROR "Raspberry Pi Pico SDK version 1.5.0 (or later) required. Your version is ${PICO_SDK_VERSION_STRING}")
 endif()
 
+# set the version for webconfig, etc. based on git
+find_package(Git)
+execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --always --dirty
+	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+	OUTPUT_VARIABLE GIT_REPO_VERSION
+	OUTPUT_STRIP_TRAILING_WHITESPACE)
+string(REGEX REPLACE "v([0-9]+\\.[0-9]+\\.[0-9]+).*" "\\1" CMAKE_GIT_REPO_VERSION ${GIT_REPO_VERSION})
+string(REGEX REPLACE "^.......$" "0.0.0" CMAKE_GIT_REPO_VERSION ${CMAKE_GIT_REPO_VERSION}) # fix if all we have is the git SHA
+configure_file("headers/version.h.in" "headers/version.h")
+message("GIT_REPO_VERSION is ${GIT_REPO_VERSION}")
+message("CMAKE_GIT_REPO_VERSION is ${CMAKE_GIT_REPO_VERSION}")
+
 # Uncomment the next line for an unomptimized build for debugging. Use in conjunction with the Debug build type.
 # set(PICO_DEOPTIMIZED_DEBUG 1)
 
-project(GP2040-CE LANGUAGES C CXX ASM VERSION 0.7.5)
+project(GP2040-CE LANGUAGES C CXX ASM VERSION ${CMAKE_GIT_REPO_VERSION})
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
@@ -104,6 +116,9 @@ add_compile_options(-Wall
 include(compile_proto.cmake)
 compile_proto()
 
+#pull in tinyUSB
+set(PICO_TINYUSB_PATH "${CMAKE_CURRENT_LIST_DIR}/lib/tinyusb")
+
 # initialize the Raspberry Pi Pico SDK
 pico_sdk_init()
 
@@ -129,6 +144,7 @@ src/gp2040aux.cpp
 src/gamepad.cpp
 src/addonmanager.cpp
 src/configmanager.cpp
+src/peripheralmanager.cpp
 src/storagemanager.cpp
 src/system.cpp
 src/usbhostmanager.cpp
@@ -156,9 +172,11 @@ src/addons/slider_socd.cpp
 src/addons/wiiext.cpp
 src/addons/input_macro.cpp
 src/addons/snes_input.cpp
+src/addons/inputhistory.cpp
 src/gamepad/GamepadDebouncer.cpp
 src/gamepad/GamepadDescriptors.cpp
 src/addons/tilt.cpp
+src/addons/xbonepassthrough.cpp
 ${PROTO_OUTPUT_DIR}/enums.pb.c
 ${PROTO_OUTPUT_DIR}/config.pb.c
 )
@@ -166,7 +184,7 @@ ${PROTO_OUTPUT_DIR}/config.pb.c
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME ${PROJECT_NAME}_${CMAKE_PROJECT_VERSION}_${GP2040_BOARDCONFIG})
 
 pico_set_program_name(GP2040-CE "GP2040-CE")
-pico_set_program_version(GP2040-CE "0.7.5")
+pico_set_program_version(GP2040-CE ${GIT_REPO_VERSION})
 
 target_link_libraries(${PROJECT_NAME}
 pico_stdlib
@@ -183,6 +201,7 @@ OneBitDisplay
 ArduinoJson
 rndis
 hardware_adc
+PicoPeripherals
 WiiExtension
 SNESpad
 pico_mbedtls
@@ -197,6 +216,7 @@ headers/configs
 headers/gamepad
 configs/${GP2040_BOARDCONFIG}
 ${PROTO_OUTPUT_DIR}
+${CMAKE_BINARY_DIR}/headers
 )
 
 target_compile_definitions(${PROJECT_NAME} PUBLIC

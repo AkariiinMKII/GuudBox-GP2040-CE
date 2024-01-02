@@ -6,24 +6,22 @@
 #include "addons/i2cdisplay.h"
 #include "GamepadState.h"
 #include "enums.h"
-#include "helper.h"
 #include "storagemanager.h"
 #include "pico/stdlib.h"
 #include "bitmaps.h"
 #include "ps4_driver.h"
-#include "helper.h"
+#include "version.h"
 #include "config.pb.h"
 #include "usb_driver.h"
 
 bool I2CDisplayAddon::available() {
 	const DisplayOptions& options = Storage::getInstance().getDisplayOptions();
-	return options.enabled && 
-		isValidPin(options.i2cSDAPin) && 
-		isValidPin(options.i2cSCLPin);
+	return options.enabled && PeripheralManager::getInstance().isI2CEnabled(options.i2cBlock);
 }
 
 void I2CDisplayAddon::setup() {
 	const DisplayOptions& options = Storage::getInstance().getDisplayOptions();
+	PeripheralI2C* i2c = PeripheralManager::getInstance().getI2C(options.i2cBlock);
 
 	obdI2CInit(&obd,
 	    options.size,
@@ -31,11 +29,8 @@ void I2CDisplayAddon::setup() {
 		options.flip,
 		options.invert,
 		DISPLAY_USEWIRE,
-		options.i2cSDAPin,
-		options.i2cSCLPin,
-		options.i2cBlock == 0 ? i2c0 : i2c1,
-		-1,
-		options.i2cSpeed);
+		i2c,
+		-1);
 
 	const int detectedDisplay = initDisplay(0);
 	if (isSH1106(detectedDisplay)) {
@@ -49,15 +44,14 @@ void I2CDisplayAddon::setup() {
 	clearScreen(1);
 	gamepad = Storage::getInstance().GetGamepad();
 	pGamepad = Storage::getInstance().GetProcessedGamepad();
-
-	const FocusModeOptions& focusModeOptions = Storage::getInstance().getAddonOptions().focusModeOptions;
-	isFocusModeEnabled = focusModeOptions.enabled && focusModeOptions.oledLockEnabled &&
-		isValidPin(focusModeOptions.pin);
 	prevButtonState = 0;
 	displaySaverTimer = options.displaySaverTimeout;
 	displaySaverTimeout = displaySaverTimer;
 	configMode = Storage::getInstance().GetConfigMode();
 	turnOffWhenSuspended = options.turnOffWhenSuspended;
+
+	const InputHistoryOptions& inputHistoryOptions = Storage::getInstance().getAddonOptions().inputHistoryOptions;
+	isInputHistoryEnabled = inputHistoryOptions.enabled;
 }
 
 bool I2CDisplayAddon::isDisplayPowerOff()
@@ -69,33 +63,20 @@ bool I2CDisplayAddon::isDisplayPowerOff()
 		if (!displayIsPowerOn) setDisplayPower(1);
 	}
 
-	if (!displaySaverTimeout && !isFocusModeEnabled) return false;
+	if (!displaySaverTimeout) return false;
 
 	float diffTime = getMillis() - prevMillis;
 	displaySaverTimer -= diffTime;
-	if (!!displaySaverTimeout && (gamepad->state.buttons || gamepad->state.dpad) && !focusModePrevState) {
+	if (!!displaySaverTimeout && (gamepad->state.buttons || gamepad->state.dpad) ) {
 		displaySaverTimer = displaySaverTimeout;
 		setDisplayPower(1);
 	} else if (!!displaySaverTimeout && displaySaverTimer <= 0) {
 		setDisplayPower(0);
 	}
-	
-	if (isFocusModeEnabled) {
-		const FocusModeOptions& focusModeOptions = Storage::getInstance().getAddonOptions().focusModeOptions;
-		bool isFocusModeActive = !gpio_get(focusModeOptions.pin);
-		if (focusModePrevState != isFocusModeActive) {
-			focusModePrevState = isFocusModeActive;
-			if (isFocusModeActive) {
-				setDisplayPower(0);
-			} else {
-				setDisplayPower(1);
-			}
-		}
-	}
 
 	prevMillis = getMillis();
 
-	return (isFocusModeEnabled && focusModePrevState) || (!!displaySaverTimeout && displaySaverTimer <= 0);
+	return (!!displaySaverTimeout && displaySaverTimer <= 0);
 }
 
 void I2CDisplayAddon::setDisplayPower(uint8_t status)
@@ -135,37 +116,37 @@ void I2CDisplayAddon::process() {
 
 			switch (options.buttonLayout) {
 				case BUTTON_LAYOUT_STICK:
-					drawArcadeStick(8, 28, 8, 2);
+					drawArcadeStick(8, (isInputHistoryEnabled ? 22 : 28), 8, 2);
 					break;
 				case BUTTON_LAYOUT_STICKLESS:
 					drawStickless(8, 20, 8, 2);
 					break;
 				case BUTTON_LAYOUT_BUTTONS_ANGLED:
-					drawWasdBox(8, 28, 7, 3);
+					drawWasdBox(8, (isInputHistoryEnabled ? 22 : 28), 7, 3);
 					break;
 				case BUTTON_LAYOUT_BUTTONS_BASIC:
-					drawUDLR(8, 28, 8, 2);
+					drawUDLR(8, (isInputHistoryEnabled ? 22 : 28), 8, 2);
 					break;
 				case BUTTON_LAYOUT_KEYBOARD_ANGLED:
-					drawKeyboardAngled(18, 28, 5, 2);
+					drawKeyboardAngled(18, (isInputHistoryEnabled ? 24 : 28), 5, 2);
 					break;
 				case BUTTON_LAYOUT_KEYBOARDA:
-					drawMAMEA(8, 28, 10, 1);
+					drawMAMEA(8, (isInputHistoryEnabled ? 22 : 28), 10, 1);
 					break;
 				case BUTTON_LAYOUT_OPENCORE0WASDA:
-					drawOpenCore0WASDA(16, 28, 10, 1);
+					drawOpenCore0WASDA(16, (isInputHistoryEnabled ? 22 : 28), 10, 1);
 					break;
 				case BUTTON_LAYOUT_DANCEPADA:
-					drawDancepadA(39, 12, 15, 2);
+					drawDancepadA(39, (isInputHistoryEnabled ? 10 : 12), (isInputHistoryEnabled ? 13 : 15), 2);
 					break;
 				case BUTTON_LAYOUT_TWINSTICKA:
-					drawTwinStickA(8, 28, 8, 2);
+					drawTwinStickA(8, (isInputHistoryEnabled ? 22 : 28), 8, 2);
 					break;
 				case BUTTON_LAYOUT_BLANKA:
 					drawBlankA(0, 0, 0, 0);
 					break;
 				case BUTTON_LAYOUT_VLXA:
-					drawVLXA(7, 28, 7, 2);
+					drawVLXA(7, (isInputHistoryEnabled ? 22 : 28), 7, 2);
 					break;
 				case BUTTON_LAYOUT_CUSTOMA:
 					drawButtonLayoutLeft(buttonLayoutCustomOptions.paramsLeft);
@@ -180,52 +161,52 @@ void I2CDisplayAddon::process() {
 
 			switch (options.buttonLayoutRight) {
 				case BUTTON_LAYOUT_ARCADE:
-					drawArcadeButtons(8, 28, 8, 2);
+					drawArcadeButtons(8, (isInputHistoryEnabled ? 22 : 28), 8, 2);
 					break;
 				case BUTTON_LAYOUT_STICKLESSB:
 					drawSticklessButtons(8, 20, 8, 2);
 					break;
 				case BUTTON_LAYOUT_BUTTONS_ANGLEDB:
-					drawWasdButtons(8, 28, 7, 3);
+					drawWasdButtons(8, (isInputHistoryEnabled ? 22 : 28), 7, 3);
 					break;
 				case BUTTON_LAYOUT_VEWLIX:
-					drawVewlix(8, 28, 8, 2);
+					drawVewlix(8, (isInputHistoryEnabled ? 22 : 28), 8, 2);
 					break;
 				case BUTTON_LAYOUT_VEWLIX7:
-					drawVewlix7(8, 28, 8, 2);
+					drawVewlix7(8, (isInputHistoryEnabled ? 22 : 28), 8, 2);
 					break;
 				case BUTTON_LAYOUT_CAPCOM:
-					drawCapcom(6, 28, 8, 2);
+					drawCapcom(6, (isInputHistoryEnabled ? 22 : 28), 8, 2);
 					break;
 				case BUTTON_LAYOUT_CAPCOM6:
-					drawCapcom6(16, 28, 8, 2);
+					drawCapcom6(16, (isInputHistoryEnabled ? 22 : 28), 8, 2);
 					break;
 				case BUTTON_LAYOUT_SEGA2P:
-					drawSega2p(8, 28, 8, 2);
+					drawSega2p(8, (isInputHistoryEnabled ? 22 : 28), 8, 2);
 					break;
 				case BUTTON_LAYOUT_NOIR8:
-					drawNoir8(8, 28, 8, 2);
+					drawNoir8(8, (isInputHistoryEnabled ? 22 : 28), 8, 2);
 					break;
 				case BUTTON_LAYOUT_KEYBOARDB:
-					drawMAMEB(68, 28, 10, 1);
+					drawMAMEB(68, (isInputHistoryEnabled ? 22 : 28), 10, 1);
 					break;
 				case BUTTON_LAYOUT_KEYBOARD8B:
-					drawMAME8B(68, 28, 10, 1);
+					drawMAME8B(68, (isInputHistoryEnabled ? 22 : 28), 10, 1);
 					break;
 				case BUTTON_LAYOUT_OPENCORE0WASDB:
-					drawOpenCore0WASDB(68, 28, 10, 1);
-					break;				
+					drawOpenCore0WASDB(68, (isInputHistoryEnabled ? 22 : 28), 10, 1);
+					break;
 				case BUTTON_LAYOUT_DANCEPADB:
-					drawDancepadB(39, 12, 15, 2);
+					drawDancepadB(39, (isInputHistoryEnabled ? 10 : 12), (isInputHistoryEnabled ? 13 : 15), 2);
 					break;
 				case BUTTON_LAYOUT_TWINSTICKB:
-					drawTwinStickB(100, 28, 8, 2);
+					drawTwinStickB(100, (isInputHistoryEnabled ? 22 : 28), 8, 2);
 					break;
 				case BUTTON_LAYOUT_BLANKB:
 					drawSticklessButtons(0, 0, 0, 0);
 					break;
 				case BUTTON_LAYOUT_VLXB:
-					drawVLXB(6, 28, 7, 2);
+					drawVLXB(6, (isInputHistoryEnabled ? 22 : 28), 7, 2);
 					break;
 				case BUTTON_LAYOUT_CUSTOMB:
 					drawButtonLayoutRight(buttonLayoutCustomOptions.paramsRight);
@@ -237,6 +218,11 @@ void I2CDisplayAddon::process() {
 					drawArcadeStick(90, 22, 8, 2);
 					break;
 			}
+
+			if(isInputHistoryEnabled && inputHistoryAddon != nullptr) {
+				inputHistoryAddon->drawHistory(&obd);
+			}
+
 			break;
 	}
 
@@ -284,17 +270,15 @@ const DisplayOptions& I2CDisplayAddon::getDisplayOptions() {
 
 int I2CDisplayAddon::initDisplay(int typeOverride) {
 	const DisplayOptions& options = Storage::getInstance().getDisplayOptions();
+	PeripheralI2C* i2c = PeripheralManager::getInstance().getI2C(options.i2cBlock);
 	return obdI2CInit(&obd,
 	    typeOverride > 0 ? typeOverride : options.size,
 		options.i2cAddress,
 		options.flip,
 		options.invert,
 		DISPLAY_USEWIRE,
-		options.i2cSDAPin,
-		options.i2cSCLPin,
-		options.i2cBlock == 0 ? i2c0 : i2c1,
-		-1,
-		options.i2cSpeed);
+		i2c,
+		-1);
 }
 
 bool I2CDisplayAddon::isSH1106(int detectedDisplay) {
@@ -321,12 +305,12 @@ bool I2CDisplayAddon::isSH1106(int detectedDisplay) {
 		buffer[0] = 0x80; // one command
 		buffer[1] = 0xE0; // read-modify-write
 		buffer[2] = 0xC0; // one data
-		if (I2CWrite(&obd.bbi2c, obd.oled_addr, buffer, 3) == 0) {
+		if (obd.i2c->write(obd.oled_addr, buffer, 3) == 0) {
 			break;
 		}
 
 		// Read two bytes back, the first byte is a dummy read and the second byte is the byte was actually want.
-		if (I2CRead(&obd.bbi2c, obd.oled_addr, buffer, 2) == 0) {
+		if (obd.i2c->read(obd.oled_addr, buffer, 2) == 0) {
 			break;
 		}
 
@@ -340,7 +324,7 @@ bool I2CDisplayAddon::isSH1106(int detectedDisplay) {
 		buffer[1] = RANDOM_DATA[i]; // data byte
 		buffer[2] = 0x80; // one command
 		buffer[3] = 0xEE; // end read-modify-write
-		if (I2CWrite(&obd.bbi2c, obd.oled_addr, buffer, 4) == 0) {
+		if (obd.i2c->write(obd.oled_addr, buffer, 4) == 0) {
 			break;
 		}
 	}
@@ -382,7 +366,7 @@ void I2CDisplayAddon::drawButtonLayoutLeft(ButtonLayoutParamsLeft& options)
 				break;
 			case BUTTON_LAYOUT_OPENCORE0WASDA:
 				drawOpenCore0WASDA(startX, startY, buttonRadius, buttonPadding);
-				break;			
+				break;
 			case BUTTON_LAYOUT_DANCEPADA:
 				drawDancepadA(startX, startY, buttonRadius, buttonPadding);
 				break;
@@ -494,7 +478,7 @@ void I2CDisplayAddon::drawStickless(int startX, int startY, int buttonRadius, in
 	obdPreciseEllipse(&obd, startX, startY, buttonRadius, buttonRadius, 1, pressedLeft());
 	obdPreciseEllipse(&obd, startX + buttonMargin, startY, buttonRadius, buttonRadius, 1, pressedDown());
 	obdPreciseEllipse(&obd, startX + (buttonMargin * 1.875), startY + (buttonMargin / 2), buttonRadius, buttonRadius, 1, pressedRight());
-	obdPreciseEllipse(&obd, startX + (buttonMargin * 2.25), startY + buttonMargin * 1.875, buttonRadius, buttonRadius, 1, pressedUp());
+	obdPreciseEllipse(&obd, startX + (buttonMargin * (isInputHistoryEnabled ? 1.875 : 2.25)), startY + buttonMargin * (isInputHistoryEnabled ? 1.5 : 1.875), buttonRadius, buttonRadius, 1, pressedUp());
 }
 
 void I2CDisplayAddon::drawWasdBox(int startX, int startY, int buttonRadius, int buttonPadding)
@@ -766,6 +750,17 @@ void I2CDisplayAddon::drawVewlix(int startX, int startY, int buttonRadius, int b
 {
 	const int buttonMargin = buttonPadding + (buttonRadius * 2);
 
+	// inner circle for turbo enabled
+	if(gamepad->turboState.buttons & GAMEPAD_BUTTON_2) obdPreciseEllipse(&obd, startX + (buttonMargin * 2.75), startY + (buttonMargin * 0.2), buttonRadius - 3, buttonRadius - 3, 1, false);  //P1 B3
+	if(gamepad->turboState.buttons & GAMEPAD_BUTTON_3) obdPreciseEllipse(&obd, startX + (buttonMargin * 3.75), startY - (buttonMargin / 4), buttonRadius - 3, buttonRadius - 3, 1, false);  //P2 B4
+	if(gamepad->turboState.buttons & GAMEPAD_BUTTON_5) obdPreciseEllipse(&obd, startX + (buttonMargin * 4.75), startY - (buttonMargin / 4), buttonRadius - 3, buttonRadius - 3, 1, false);  //P3 R1
+	if(gamepad->turboState.buttons & GAMEPAD_BUTTON_4) obdPreciseEllipse(&obd, startX + (buttonMargin * 5.75), startY - (buttonMargin / 4), buttonRadius - 3, buttonRadius - 3, 1, false); //P4 L1
+
+	if(gamepad->turboState.buttons & GAMEPAD_BUTTON_0) obdPreciseEllipse(&obd, startX + (buttonMargin * 2.75) - (buttonMargin / 3), startY + buttonMargin + (buttonMargin * 0.2), buttonRadius - 3, buttonRadius - 3, 1, false);  //K1 B1
+	if(gamepad->turboState.buttons & GAMEPAD_BUTTON_1) obdPreciseEllipse(&obd, startX + (buttonMargin * 3.75) - (buttonMargin / 3), startY + buttonMargin - (buttonMargin / 4), buttonRadius - 3, buttonRadius - 3, 1, false);  //K2 B2
+	if(gamepad->turboState.buttons & GAMEPAD_BUTTON_7) obdPreciseEllipse(&obd, startX + (buttonMargin * 4.75) - (buttonMargin / 3), startY + buttonMargin - (buttonMargin / 4), buttonRadius - 3, buttonRadius - 3, 1, false); //K3 R2
+	if(gamepad->turboState.buttons & GAMEPAD_BUTTON_6) obdPreciseEllipse(&obd, startX + (buttonMargin * 5.75) - (buttonMargin / 3), startY + buttonMargin - (buttonMargin / 4), buttonRadius - 3, buttonRadius - 3, 1, false); //K4 L2
+
 	// 8-button Vewlix
 	obdPreciseEllipse(&obd, startX + (buttonMargin * 2.75), startY + (buttonMargin * 0.2), buttonRadius, buttonRadius, 1, pGamepad->pressedB3());
 	obdPreciseEllipse(&obd, startX + (buttonMargin * 3.75), startY - (buttonMargin / 4), buttonRadius, buttonRadius, 1, pGamepad->pressedB4());
@@ -854,6 +849,17 @@ void I2CDisplayAddon::drawNoir8(int startX, int startY, int buttonRadius, int bu
 {
 	const int buttonMargin = buttonPadding + (buttonRadius * 2);
 
+	// inner circle for turbo enabled
+	if(gamepad->turboState.buttons & GAMEPAD_BUTTON_2) obdPreciseEllipse(&obd, startX + (buttonMargin * 2.75), startY + (buttonMargin / 3.5), buttonRadius - 3, buttonRadius - 3, 1, false);  //P1 B3
+	if(gamepad->turboState.buttons & GAMEPAD_BUTTON_3) obdPreciseEllipse(&obd, startX + (buttonMargin * 3.75), startY - (buttonMargin / 4), buttonRadius - 3, buttonRadius - 3, 1, false);  //P2 B4
+	if(gamepad->turboState.buttons & GAMEPAD_BUTTON_5) obdPreciseEllipse(&obd, startX + (buttonMargin * 4.75), startY - (buttonMargin / 4), buttonRadius - 3, buttonRadius - 3, 1, false);  //P3 R1
+	if(gamepad->turboState.buttons & GAMEPAD_BUTTON_4) obdPreciseEllipse(&obd, startX + (buttonMargin * 5.75), startY, buttonRadius - 3, buttonRadius - 3, 1, false); //P4 L1
+
+	if(gamepad->turboState.buttons & GAMEPAD_BUTTON_0) obdPreciseEllipse(&obd, startX + (buttonMargin * 2.75), startY + buttonMargin + (buttonMargin / 3.5), buttonRadius - 3, buttonRadius - 3, 1, false);  //K1 B1
+	if(gamepad->turboState.buttons & GAMEPAD_BUTTON_1) obdPreciseEllipse(&obd, startX + (buttonMargin * 3.75), startY + buttonMargin - (buttonMargin / 4), buttonRadius - 3, buttonRadius - 3, 1, false);  //K2 B2
+	if(gamepad->turboState.buttons & GAMEPAD_BUTTON_7) obdPreciseEllipse(&obd, startX + (buttonMargin * 4.75), startY + buttonMargin - (buttonMargin / 4), buttonRadius - 3, buttonRadius - 3, 1, false); //K3 R2
+	if(gamepad->turboState.buttons & GAMEPAD_BUTTON_6) obdPreciseEllipse(&obd, startX + (buttonMargin * 5.75), startY + buttonMargin, buttonRadius - 3, buttonRadius - 3, 1, false); //K4 L2
+
 	// 8-button Noir8
 	obdPreciseEllipse(&obd, startX + (buttonMargin * 2.75), startY + (buttonMargin / 3.5), buttonRadius, buttonRadius, 1, pGamepad->pressedB3());
 	obdPreciseEllipse(&obd, startX + (buttonMargin * 3.75), startY - (buttonMargin / 4), buttonRadius, buttonRadius, 1, pGamepad->pressedB4());
@@ -899,6 +905,17 @@ void I2CDisplayAddon::drawCapcom6(int startX, int startY, int buttonRadius, int 
 void I2CDisplayAddon::drawSticklessButtons(int startX, int startY, int buttonRadius, int buttonPadding)
 {
 	const int buttonMargin = buttonPadding + (buttonRadius * 2);
+
+	// inner circle for turbo enabled
+	if(gamepad->turboState.buttons & GAMEPAD_BUTTON_0) obdPreciseEllipse(&obd, startX + (buttonMargin * 2.75), startY + buttonMargin, buttonRadius - 3, buttonRadius - 3, 1, false);  //K1 
+	if(gamepad->turboState.buttons & GAMEPAD_BUTTON_1) obdPreciseEllipse(&obd, startX + (buttonMargin * 3.75), startY + buttonMargin - (buttonMargin / 4), buttonRadius - 3, buttonRadius - 3, 1, false);  //K2
+	if(gamepad->turboState.buttons & GAMEPAD_BUTTON_2) obdPreciseEllipse(&obd, startX + (buttonMargin * 2.75), startY, buttonRadius - 3, buttonRadius - 3, 1, false);  //P1
+	if(gamepad->turboState.buttons & GAMEPAD_BUTTON_3) obdPreciseEllipse(&obd, startX + (buttonMargin * 3.75), startY - (buttonMargin / 4), buttonRadius - 3, buttonRadius - 3, 1, false);  //P2
+
+	if(gamepad->turboState.buttons & GAMEPAD_BUTTON_4) obdPreciseEllipse(&obd, startX + (buttonMargin * 5.75), startY, buttonRadius - 3, buttonRadius - 3, 1, false); //P4
+	if(gamepad->turboState.buttons & GAMEPAD_BUTTON_5) obdPreciseEllipse(&obd, startX + (buttonMargin * 4.75), startY - (buttonMargin / 4), buttonRadius - 3, buttonRadius - 3, 1, false);  //P3
+	if(gamepad->turboState.buttons & GAMEPAD_BUTTON_6) obdPreciseEllipse(&obd, startX + (buttonMargin * 5.75), startY + buttonMargin, buttonRadius - 3, buttonRadius - 3, 1, false); //K4
+	if(gamepad->turboState.buttons & GAMEPAD_BUTTON_7) obdPreciseEllipse(&obd, startX + (buttonMargin * 4.75), startY + buttonMargin - (buttonMargin / 4), buttonRadius - 3, buttonRadius - 3, 1, false); //K3
 
 	// 8-button
 	obdPreciseEllipse(&obd, startX + (buttonMargin * 2.75), startY, buttonRadius, buttonRadius, 1, pGamepad->pressedB3());
@@ -1016,6 +1033,13 @@ void I2CDisplayAddon::drawStatusBar(Gamepad * gamepad)
 		case INPUT_MODE_HID:    statusBar += "DINPUT"; break;
 		case INPUT_MODE_SWITCH: statusBar += "SWITCH"; break;
 		case INPUT_MODE_XINPUT: statusBar += "XINPUT"; break;
+		case INPUT_MODE_MDMINI: statusBar += "GEN/MD"; break;
+		case INPUT_MODE_NEOGEO: statusBar += "NGMINI"; break;
+		case INPUT_MODE_PCEMINI: statusBar += "PCE/TG"; break;
+		case INPUT_MODE_EGRET: statusBar += "EGRET"; break;
+		case INPUT_MODE_ASTRO: statusBar += "ASTRO"; break;
+		case INPUT_MODE_PSCLASSIC: statusBar += "PSC"; break;
+		case INPUT_MODE_XBOXORIGINAL: statusBar += "OGXBOX"; break;
 		case INPUT_MODE_PS4:
 			if ( PS4Data::getInstance().ps4ControllerType == PS4ControllerType::PS4_CONTROLLER ) {
 				if (PS4Data::getInstance().authsent == true )
@@ -1029,6 +1053,7 @@ void I2CDisplayAddon::drawStatusBar(Gamepad * gamepad)
 					statusBar += "PS5   ";
 			}
 			break;
+		case INPUT_MODE_XBONE:    statusBar += "XBONE"; break;
 		case INPUT_MODE_KEYBOARD: statusBar += "HID-KB"; break;
 		case INPUT_MODE_CONFIG: statusBar += "CONFIG"; break;
 	}
@@ -1108,4 +1133,8 @@ bool I2CDisplayAddon::pressedRight()
 	}
 
 	return false;
+}
+
+void I2CDisplayAddon::attachInputHistoryAddon(InputHistoryAddon* pInputHistoryAddon) {
+	inputHistoryAddon = pInputHistoryAddon;
 }

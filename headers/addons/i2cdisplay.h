@@ -13,6 +13,10 @@
 #include "gpaddon.h"
 #include "gamepad.h"
 #include "storagemanager.h"
+#include "peripheralmanager.h"
+#include "peripheral_i2c.h"
+#include "peripheral_spi.h"
+#include "addons/inputhistory.h"
 
 #ifndef HAS_I2C_DISPLAY
 #define HAS_I2C_DISPLAY -1
@@ -56,6 +60,22 @@
 
 #ifndef DISPLAY_SAVER_TIMEOUT
 #define DISPLAY_SAVER_TIMEOUT 0
+#endif
+
+#ifndef BUTTON_LAYOUT
+#define BUTTON_LAYOUT BUTTON_LAYOUT_STICK
+#endif
+
+#ifndef BUTTON_LAYOUT_RIGHT
+#define BUTTON_LAYOUT_RIGHT BUTTON_LAYOUT_VEWLIX
+#endif
+
+#ifndef SPLASH_MODE
+#define SPLASH_MODE SPLASH_MODE_NONE
+#endif
+
+#ifndef SPLASH_CHOICE
+#define SPLASH_CHOICE SPLASH_CHOICE_MAIN
 #endif
 
 #ifndef SPLASH_DURATION
@@ -146,6 +166,7 @@ public:
 	virtual void preprocess() {}
 	virtual void process();
 	virtual std::string name() { return I2CDisplayName; }
+	virtual void attachInputHistoryAddon(InputHistoryAddon*);
 private:
 	int initDisplay(int typeOverride);
 	bool isSH1106(int detectedDisplay);
@@ -216,9 +237,9 @@ private:
 	DisplayMode getDisplayMode();
 	DisplayMode prevDisplayMode;
 	uint16_t prevButtonState;
-	bool isFocusModeEnabled;
-	bool focusModePrevState;
 	bool turnOffWhenSuspended;
+	bool isInputHistoryEnabled;
+	InputHistoryAddon* inputHistoryAddon;
 };
 
 #endif

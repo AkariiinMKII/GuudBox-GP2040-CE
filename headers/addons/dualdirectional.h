@@ -50,11 +50,14 @@ public:
     virtual bool available();
 	virtual void setup();       // Dual Directional Setup
 	virtual void process();     // Dual Directional Process
+    virtual void reinit();
     virtual void preprocess();  // Dual Directional Pre-Process (Cheat)
     virtual std::string name() { return DualDirectionalName; }
 private:
     void debounce();
     uint8_t gpadToBinary(DpadMode, GamepadState);
+    uint8_t updateDpadDDI(uint8_t dpad, DpadDirection direction);
+    uint8_t filterToFourWayModeDDI(uint8_t dpad);
     void SOCDDualClean(SOCDMode);
     uint8_t SOCDCombine(SOCDMode, uint8_t);
     uint8_t SOCDGamepadClean(uint8_t, bool isLastWin);
